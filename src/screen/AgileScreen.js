@@ -1,91 +1,58 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Button } from 'react-native';
 import { Camera } from 'expo-camera';
-import { MaterialIcons } from '@expo/vector-icons'; // Import the icons from expo/vector-icons
-import CustomHeaderLeft from '../components/CustomHeaderLeft';
+import axios from 'axios';
 
-export default function App({ navigation }) {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
-  const cameraRef = useRef(null);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestMicrophonePermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
-
-  useEffect(() => {
-    navigation.setOptions({
-      // Make the header transparent
-      headerTransparent: true,
-      // Render custom headerLeft component with back button
-      headerLeft: () => <CustomHeaderLeft navigation={navigation} />,
-      // Remove the title from the header
-      title: null, 
-    });
-  }, [navigation]);
-
-  if (hasPermission === null) {
-    return <View />;
-  }
-  if (hasPermission === false) {
-    return <Text>No access to camera</Text>;
-  }
-
+const CameraScreen = () => {
+  const cameraRef = React.useRef(null);
 
   const takePicture = async () => {
     if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
-      // Do something with the captured photo, e.g. save to storage or send to server
+      const options = { quality: 0.5, base64: false };
+      const data = await cameraRef.current.takePictureAsync(options);
+
+      // 캡처한 이미지 파일을 서버로 전송
+      uploadImage(data.uri);
+    }
+  };
+
+  const uploadImage = async (imageUri) => {
+    const formData = new FormData();
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'image.jpg',
+    });
+
+    try {
+      const response = await axios.post('http://your-server-url/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log(response.data);
+      // 파일 전송 성공시 서버의 응답 데이터를 처리합니다.
+    } catch (error) {
+      console.error(error);
+      // 파일 전송 실패시 에러를 처리합니다.
     }
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <Camera style={{ flex: 1 }} type={type} ref={cameraRef}>
-        {/* ... camera view ... */}
+      <Camera
+        ref={cameraRef}
+        style={{ flex: 1 }}
+        type={Camera.Constants.Type.back}
+        ratio="16:9"
+        onCameraReady={() => {
+          console.log('Camera ready!');
+        }}
+      >
+        <Button title="Take Picture" onPress={takePicture} />
       </Camera>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.cameraButton} onPress={takePicture}>
-          <MaterialIcons name="camera" size={80} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.flipButton}
-          onPress={() => {
-            setType(
-              type === Camera.Constants.Type.back
-                ? Camera.Constants.Type.front
-                : Camera.Constants.Type.back
-            );
-          }}
-        >
-          <MaterialIcons name="flip-camera-android" size={30} color="white" />
-        </TouchableOpacity>
-      </View>
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    flexDirection: 'row',
-  },
-  cameraButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    left:20
-  },
-  flipButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 10,
-    right:660
-  },
-});
-
+export default CameraScreen;
